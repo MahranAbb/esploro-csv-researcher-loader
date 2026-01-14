@@ -49,3 +49,4 @@ build
 cloudapp/src/assets/manifest*.json
 config.json
 cloudapp/jsconfig.json
+.nvmrc

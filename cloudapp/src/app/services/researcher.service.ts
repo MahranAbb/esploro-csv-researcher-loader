@@ -55,14 +55,24 @@ export class ResearcherService {
     const arrayIndicator = new RegExp(/\[\d*\]/);
     const mapCsvToProfileFields = (parsedResearcher: any, selectedProfile: Profile) => {
       return Object.entries<string>(parsedResearcher).reduce((mappedFields, [csvKey, csvValue]) => {
-        const profileField = selectedProfile.fields.find(profileField => profileField.header === csvKey);
-        if (profileField && profileField.fieldName && csvValue) {
-          let fieldName = profileField.fieldName;
-          if (arrayIndicator.test(fieldName)) { // array field
-            fieldName = fieldName.replace(arrayIndicator, `[${Object.keys(mappedFields).filter(k => k.replace(arrayIndicator, '[]') === fieldName).length}]`);
-          }
+        const profileField = selectedProfile.fields.find(pf => pf.header === csvKey);
+        if (!profileField?.fieldName) return mappedFields;
+
+        let fieldName = profileField.fieldName;
+        const isArrayField = arrayIndicator.test(fieldName);
+
+        if (isArrayField) {
+          const nextIndex = Object.keys(mappedFields)
+            .filter(k => k.replace(arrayIndicator, '[]') === fieldName)
+            .length;
+
+          fieldName = fieldName.replace(arrayIndicator, `[${nextIndex}]`);
+        }
+
+        if (isArrayField || csvValue) {
           mappedFields[fieldName] = ['true', 'false'].includes(csvValue) ? (csvValue === 'true') : csvValue;
         }
+
         return mappedFields;
       }, {});
     };
