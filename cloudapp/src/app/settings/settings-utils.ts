@@ -77,6 +77,14 @@ export const validateFields = (fields: FormArray): string[] | null => {
       || !fields.value.some(f=>f['fieldName']=='researcher.researcher_webpage[].url')))
     errorArray.push({code:_('Settings.Validation.WebpagesTypeAndUrlRequired')});
 
+  /* Multilingual fields - language required */
+  const multilingualFields = fields.value.filter(f => f['fieldName'] && f['fieldName'].includes('_multilingual'));
+  multilingualFields.forEach(field => {
+    if (!field['language'] || field['language'] === '') {
+      errorArray.push({code:_('Settings.Validation.MultilingualLanguageRequired')});
+    }
+  });
+
   return errorArray.length>0 ? errorArray : null;
 }
 

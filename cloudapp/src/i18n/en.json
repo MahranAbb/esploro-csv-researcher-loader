@@ -116,6 +116,7 @@
 			"EngagementsTypeRequired": "Engagements - Type required",
 			"HonorsOrgaRequired": "Honors - Organization Code required",
 			"IdentifiersTypeAndValueRequired": "Identifiers - Type and Value required",
+			"MultilingualLanguageRequired": "Multilingual fields - Language is required",
 			"NameVariantsLastNameRequired": "Name Variants - Last Name required",
 			"PrimaryIdRequired": "Primary ID required",
 			"WebpagesTypeAndUrlRequired": "Webpages - Type and URL required",
