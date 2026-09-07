@@ -213,36 +213,48 @@ export class ResearcherService {
     };
 
     const setDefaultValues = (researcher: any, selectedProfile: Profile) => {
-      const occurrences: { [fieldName: string]: number } = {};
       selectedProfile.fields.filter(field => field.default).forEach(field => {
-        occurrences[field.fieldName] = (occurrences[field.fieldName] === undefined ? -1 : occurrences[field.fieldName]) + 1;
-        const fname = field.fieldName.replace(/\[\]/g, `[${occurrences[field.fieldName]}]`);
-        
-        // Check if this is a multilingual field
-        if (field.fieldName.includes('_multilingual') && field.language) {
-          // Check if it's a values array field or simple value field
-          if (field.fieldName.includes('[].values')) {
-            // Values array field - set language and values as array
-            const baseFieldName = fname.replace(/\.values$/, '');
-            if (!researcher[baseFieldName + '.language']) {
-              researcher[baseFieldName + '.language'] = field.language;
-            }
-            if (!researcher[fname]) {
-              researcher[fname] = [field.default];
-            }
-          } else if (field.fieldName.includes('[].value')) {
-            // Simple value field - set language and value
-            const baseFieldName = fname.replace(/\.value$/, '');
-            if (!researcher[baseFieldName + '.language']) {
-              researcher[baseFieldName + '.language'] = field.language;
-            }
-            if (!researcher[fname]) {
-              researcher[fname] = field.default;
+        let fieldName = field.fieldName;
+        const isArrayField = arrayIndicator.test(fieldName);
+
+        if (isArrayField) {
+          const isNestedArray = (fieldName.match(/\[\]/g) || []).length >= 2;
+          // e.g. researcher.researcher_webpage[].title_multilingual[].value
+          const nestedMatch = isNestedArray && fieldName.match(/^(.*?)\[\]\.(.*?)\[\]\.(value|values)$/);
+
+          if (nestedMatch) {
+            // Parent array + multilingual array: attach to the most recently mapped
+            // parent entry, and reuse/append the language entry within it.
+            const [, parentBase, multilingualBase, valuePath] = nestedMatch;
+            const parentIndex = Math.max(getMaxParentIndex(parentBase, researcher), 0);
+            const multilingualPath = `${parentBase}[${parentIndex}].${multilingualBase}`;
+
+            const existingLangIndex = field.language ? findLanguageIndex(multilingualPath, field.language, researcher) : -1;
+            const multilingualIndex = existingLangIndex >= 0
+              ? existingLangIndex
+              : getExistingLanguages(multilingualPath, researcher).length;
+
+            fieldName = `${multilingualPath}[${multilingualIndex}].${valuePath}`;
+          } else {
+            // Count existing entries (from CSV mapping or earlier defaults) so the
+            // default is appended as a new array entry instead of overwriting index 0.
+            const nextIndex = Object.keys(researcher)
+              .filter(k => k.replace(arrayIndicator, '[]') === fieldName)
+              .length;
+            fieldName = fieldName.replace(arrayIndicator, `[${nextIndex}]`);
+          }
+        }
+
+        if (!researcher[fieldName]) {
+          researcher[fieldName] = fieldName.endsWith('.values') ? [field.default] : field.default;
+
+          // Multilingual value/values fields need their sibling .language key set alongside the default
+          if (field.language) {
+            const languageFieldName = fieldName.replace(/\.(value|values)$/, '.language');
+            if (!researcher[languageFieldName]) {
+              researcher[languageFieldName] = field.language;
             }
           }
-        } else {
-          // Non-multilingual field - use original logic
-          if (!researcher[fname]) researcher[fname] = field.default;
         }
       });
     };
