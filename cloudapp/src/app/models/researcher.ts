@@ -17,6 +17,14 @@ interface OrganizationAffiliation {
     positionOrder?: number;
 }
 
+export interface UserIdentifier {
+    value: string;
+    id_type: {
+        value: string;
+        desc?: string;
+    }
+}
+
 export interface Researcher {
     is_researcher?: boolean;
     primary_id: string;
@@ -106,12 +114,6 @@ export interface Researcher {
         researcher_previous_organization_affiliation?: OrganizationAffiliation[];
         researcher_external_organization_affiliation?: OrganizationAffiliation[];
         researcher_previous_external_organization_affiliation?: OrganizationAffiliation[];
-        user_identifier?: {
-            value: string;
-            id_type: {
-                value: string;
-                desc?: string;
-            }
-        }[];
+        user_identifier?: UserIdentifier[];
     };
 }

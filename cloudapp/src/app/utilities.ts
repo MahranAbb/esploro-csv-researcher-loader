@@ -1,3 +1,4 @@
+import { UserIdentifier } from "./models/researcher";
 
 /** Maps object based on passed in function and returns object */
 const mapObject = (object: Object, mapFn: Function) => Object.keys(object).reduce(function(result, key) {
@@ -58,16 +59,38 @@ const tryParse = (val: string) => {
   }
 };
 
-/** Merge properties of source object to target including nested objects */
-const deepMergeObjects = (target: any, source: any): any => {
-  if (isObject(target) && isObject(source)) {
-    for (const key in source) {
-      if (isObject(source[key])) {
-          if (!target[key]) Object.assign(target, { [key]: {} });
-          deepMergeObjects(target[key], source[key]);
-      } else {
-          Object.assign(target, { [key]: source[key] });
-      }
+/** 
+ * Merge properties of source object to target including nested objects .
+ * Special handling for researcher.user_identifiers (merge instead of swap all).
+ */
+const deepMergeObjects = (
+  target: any, 
+  source: any,
+  path: string[] = []
+): any => {
+  if (!isObject(target) || !isObject(source)) return target;
+
+  for (const key of Object.keys(source)) {
+    const sourceValue = source[key];
+    const targetValue = target[key];
+    const nextPath = [...path, key];
+    const fullPath = nextPath.join('.');
+
+    // special handling for researcher.user_identifiers
+    if (fullPath === 'researcher.user_identifier') {
+      target[key] = mergeUserIdentifiers(
+        Array.isArray(targetValue) ? targetValue : [],
+        Array.isArray(sourceValue) ? sourceValue : [],
+      );
+      continue;
+    }
+
+    // default handling (replace scalars and arrays)
+    if (isObject(sourceValue)) {
+      if (!isObject(targetValue)) target[key] = {};
+      deepMergeObjects(target[key], sourceValue, nextPath);
+    } else {
+      target[key] = sourceValue;
     }
   }
   return target;
@@ -75,6 +98,51 @@ const deepMergeObjects = (target: any, source: any): any => {
 
 const isObject = (item: any) => {
   return item && typeof item === 'object' && !Array.isArray(item);
+};
+
+/**
+ * Build a unique key for a user identifier.
+ * Currently only using the id_type.value.
+ */
+const uidKey = (uid: UserIdentifier) =>
+  `${(uid?.id_type?.value ?? '').trim().toLowerCase()}`;
+
+/**
+ * Merge two arrays of user identifiers:
+ * - preserve target's existing identifiers that are not provided in source
+ * - append new identifier types from source that aren't present in target
+ * - replace existing identifier types in target that got new values from source
+ * (if there are duplicate identifer types in Esploro, only the first identifier will be updated with new values from source)
+ */
+const mergeUserIdentifiers = (
+  targetList: UserIdentifier[] | undefined,
+  sourceList: UserIdentifier[] | undefined,
+): UserIdentifier[] => {
+  const result: UserIdentifier[] = Array.isArray(targetList) ? [...targetList] : [];
+  if (!Array.isArray(sourceList) || sourceList.length === 0) return result;
+
+  const firstIndexByType = new Map<string, number>();
+  for (let i = 0; i < result.length; i++) {
+    const idKey = uidKey(result[i]);
+    if (!firstIndexByType.has(idKey)) {
+      firstIndexByType.set(idKey, i);
+    }
+
+  }
+
+  for (const uid of sourceList) {
+    const idKey = uidKey(uid);
+    const existingIdx = firstIndexByType.get(idKey);
+    if (existingIdx == null) {
+      // append
+      firstIndexByType.set(idKey, result.length);
+      result.push(uid);
+    } else {
+      // replace (source wins)
+      result[existingIdx] = uid;
+    }
+  }
+  return result;
 };
 
 const enum CustomResponseType {
